@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Life Tracker — Phase System</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f0f0f; --bg2: #1a1a1a; --bg3: #252525; --border: #333;
+    --text: #e0e0e0; --text2: #888; --accent: #4f9eff; --accent2: #2d7ad6;
+    --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 14px; }
+  .container { max-width: 640px; margin: 0 auto; padding: 12px; padding-bottom: 80px; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  h2 { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--accent); }
+  h3 { font-size: 14px; font-weight: 600; margin-bottom: 6px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; }
+  h4 { font-size: 14px; font-weight: 600; margin: 12px 0 6px; color: var(--text); }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .phase-badge { display: inline-block; background: var(--accent2); color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .streak { display: inline-flex; align-items: center; gap: 4px; background: var(--bg3); padding: 4px 10px; border-radius: 6px; font-size: 13px; margin: 2px; }
+  .streak .fire { color: var(--orange); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+  input[type="number"], input[type="date"], select {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 10px; border-radius: 6px; font-size: 14px; font-family: inherit;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  .toggle { display: flex; gap: 0; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+  .toggle button { flex: 1; padding: 8px; background: var(--bg3); color: var(--text2); border: none;
+    cursor: pointer; font-size: 13px; font-family: inherit; transition: all .15s; }
+  .toggle button.active { background: var(--green); color: #fff; font-weight: 600; }
+  .toggle button.active-no { background: var(--red); color: #fff; font-weight: 600; }
+  .btn { background: var(--accent); color: #fff; border: none; padding: 10px 20px; border-radius: 6px;
+    cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit; width: 100%; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+  .btn-sm { padding: 6px 12px; width: auto; font-size: 12px; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  /* Bottom nav */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg2); border-top: 1px solid var(--border);
+    display: flex; justify-content: center; padding: 6px 0; z-index: 100; }
+  .bottom-nav button { flex: 0 1 80px; padding: 6px 4px; border: none; background: none; color: var(--text2);
+    cursor: pointer; font-size: 10px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .bottom-nav button .icon { font-size: 18px; }
+  .bottom-nav button.active { color: var(--accent); }
+  .stat { text-align: center; padding: 12px; }
+  .stat .val { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .stat .lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .progress-bar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width .3s; }
+  .chart-wrap { position: relative; height: 200px; margin-top: 8px; }
+  .day-dots { display: flex; gap: 3px; flex-wrap: wrap; }
+  .day-dot { width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 9px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+  th { color: var(--text2); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  .meal-card { background: var(--bg3); border-radius: 6px; padding: 12px; margin-bottom: 8px; }
+  .meal-card .meal-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; color: var(--accent); }
+  .meal-card .meal-macro { font-size: 12px; color: var(--green); margin-bottom: 6px; }
+  .meal-card .meal-item { font-size: 13px; color: var(--text); padding: 2px 0; display: flex; justify-content: space-between; }
+  .meal-card .meal-item span:last-child { color: var(--text2); }
+  .exercise-row { background: var(--bg3); border-radius: 6px; padding: 10px 12px; margin-bottom: 6px; }
+  .exercise-row .ex-name { font-weight: 600; font-size: 14px; }
+  .exercise-row .ex-detail { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .exercise-row .ex-weight { font-size: 13px; color: var(--green); margin-top: 2px; }
+  .time-block { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .time-block:last-child { border-bottom: none; }
+  .time-block .time { color: var(--accent); font-weight: 600; font-size: 13px; min-width: 55px; }
+  .time-block .activity { font-size: 13px; }
+  .time-block .activity.work { color: var(--green); font-weight: 600; }
+  .time-block .activity.gym { color: var(--orange); font-weight: 600; }
+  .grocery-cat { margin-bottom: 12px; }
+  .grocery-cat h4 { color: var(--accent); margin-bottom: 6px; font-size: 13px; }
+  .grocery-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #1f1f1f; }
+  .grocery-item span:last-child { color: var(--text2); }
+  .flex { display: flex; align-items: center; gap: 8px; }
+  .spacer { flex: 1; }
+  .mb8 { margin-bottom: 8px; }
+  .mb16 { margin-bottom: 16px; }
+  .mt8 { margin-top: 8px; }
+  .mt16 { margin-top: 16px; }
+  .text-green { color: var(--green); }
+  .text-red { color: var(--red); }
+  .text-yellow { color: var(--yellow); }
+  .text-muted { color: var(--text2); }
+  .text-sm { font-size: 12px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+  .tag { display: inline-block; background: var(--bg3); color: var(--text2); padding: 2px 8px; border-radius: 4px; font-size: 11px; margin: 2px; }
+  @media (max-width: 400px) { .grid { grid-template-columns: 1fr; } .grid3 { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const PHASE_START = '2026-04-07';
+const STORAGE_KEY = 'life_tracker_v2';
+
+const PHASES = {
+  1: { name: 'Foundation', color: '#4f9eff' },
+  2: { name: 'Expansion', color: '#22c55e' },
+  3: { name: 'Acceleration', color: '#eab308' },
+  4: { name: 'Full System', color: '#f97316' },
+};
+
+const defaultDay = () => ({
+  weight: '', meals: { breakfast: false, lunch: false, preworkout: false, shake: false, dinner: false },
+  workout: null, water: '', protein: '', sleep: '', calories: '',
+  meditation: null, mandarin: '', grooming: null, reflection: null,
+  english: '', apexStudy: '', oscpStudy: '', mood: '', energy: '',
+});
+
+const defaultState = () => ({ currentPhase: 1, logs: {}, measurements: {} });
+
+function load() {
+  try { const d = localStorage.getItem(STORAGE_KEY); return d ? { ...defaultState(), ...JSON.parse(d) } : defaultState(); }
+  catch { return defaultState(); }
+}
+function save(state) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function today() { return new Date().toISOString().split('T')[0]; }
+function daysBetween(a, b) { return Math.floor((new Date(b) - new Date(a)) / 86400000); }
+function fmt(d) { const dt = new Date(d + 'T12:00:00'); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+
+function calcAdherence(log, phase) {
+  let score = 0, max = 0;
+  const m = log.meals || {};
+  const mealsOk = m.breakfast && m.lunch && m.dinner;
+  if (mealsOk) score++; max++;
+  if (parseFloat(log.protein) >= 170) score++; max++;
+  if (log.workout !== null) { if (log.workout) score++; max++; }
+  if (parseFloat(log.water) >= 2.5) score++; max++;
+  if (parseFloat(log.sleep) >= 7.5) score++; max++;
+  if (log.weight) score++; max++;
+  if (phase >= 2) {
+    if (log.meditation) score++; max++;
+    if (parseFloat(log.mandarin) >= 30) score++; max++;
+    if (log.grooming) score++; max++;
+    if (log.reflection) score++; max++;
+  }
+  if (phase >= 3) {
+    if (parseFloat(log.english) >= 25) score++; max++;
+    if (parseFloat(log.apexStudy) >= 25) score++; max++;
+    if (log.oscpStudy !== '') score++; max++;
+  }
+  if (phase >= 4) {
+    if (log.mood) score++; max++;
+    if (log.energy) score++; max++;
+  }
+  return { score, max };
+}
+
+function calcStreaks(logs, field) {
+  const dates = Object.keys(logs).sort().reverse();
+  let streak = 0;
+  for (const d of dates) {
+    const log = logs[d]; let hit = false;
+    if (field === 'workout') hit = log.workout === true;
+    else if (field === 'meals') { const m = log.meals || {}; hit = m.breakfast && m.lunch && m.dinner; }
+    else if (field === 'meditation') hit = log.meditation === true;
+    else if (field === 'water') hit = parseFloat(log.water) >= 2.5;
+    else if (field === 'protein') hit = parseFloat(log.protein) >= 170;
+    else if (field === 'sleep') hit = parseFloat(log.sleep) >= 7.5;
+    else if (field === 'grooming') hit = log.grooming === true;
+    if (hit) streak++; else break;
+  }
+  return streak;
+}
+
+function Toggle({ value, onChange, labels = ['Yes', 'No'] }) {
+  return (
+    <div className="toggle">
+      <button className={value === true ? 'active' : ''} onClick={() => onChange(true)}>{labels[0]}</button>
+      <button className={value === false ? 'active-no' : ''} onClick={() => onChange(false)}>{labels[1]}</button>
+    </div>
+  );
+}
+
+/* ============ MEAL PLAN DATA ============ */
+const MEALS = [
+  { name: 'Breakfast', time: '6:50 AM', cal: 693, protein: 35, items: [
+    { food: 'Eggs (whole)', amount: '4 large (200g)', cal: 296 },
+    { food: 'Oats (dry)', amount: '60g', cal: 228 },
+    { food: 'Banana', amount: '1 medium', cal: 105 },
+    { food: 'Honey', amount: '1 tbsp', cal: 64 },
+  ]},
+  { name: 'Lunch', time: '12:20 PM', cal: 717, protein: 55, items: [
+    { food: 'Chicken breast', amount: '180g cooked', cal: 214 },
+    { food: 'White rice', amount: '200g cooked', cal: 260 },
+    { food: 'Lentils', amount: '80g cooked', cal: 93 },
+    { food: 'Olive oil', amount: '10ml', cal: 90 },
+    { food: 'Mixed vegetables', amount: '150g', cal: 60 },
+  ]},
+  { name: 'Pre-Workout', time: '2:50 PM', cal: 420, protein: 36, items: [
+    { food: 'Canned tuna (drained)', amount: '1 can (120g)', cal: 120 },
+    { food: 'Sweet potato', amount: '150g cooked', cal: 129 },
+    { food: 'Whole wheat bread', amount: '1 slice', cal: 75 },
+    { food: 'Peanut butter', amount: '1 tbsp', cal: 96 },
+  ]},
+  { name: 'Post-Workout Shake', time: '4:25 PM', cal: 380, protein: 33, items: [
+    { food: 'Whey protein', amount: '1 scoop (30g)', cal: 120 },
+    { food: 'Banana', amount: '1 medium', cal: 105 },
+    { food: 'Whole milk', amount: '250ml', cal: 155 },
+  ]},
+  { name: 'Dinner', time: '6:20 PM', cal: 563, protein: 45, items: [
+    { food: 'Lean beef or tilapia', amount: '150g', cal: 200 },
+    { food: 'Pasta', amount: '150g cooked', cal: 197 },
+    { food: 'Chickpeas', amount: '60g cooked', cal: 98 },
+    { food: 'Spinach/kale', amount: '100g cooked', cal: 23 },
+    { food: 'Olive oil', amount: '5ml', cal: 45 },
+  ]},
+];
+
+const GROCERY = [
+  { cat: 'Protein', items: [
+    { name: 'Eggs', amount: '2.5 dozen (30)', cost: '$7-10' },
+    { name: 'Chicken breast', amount: '1.4 kg (3 lbs)', cost: '$12-18' },
+    { name: 'Lean beef (sirloin)', amount: '700g (1.5 lbs)', cost: '$12-18' },
+    { name: 'Canned tuna', amount: '6 cans', cost: '$6-9' },
+    { name: 'Lentils (dry)', amount: '500g', cost: '$2-3' },
+    { name: 'Chickpeas (canned)', amount: '2 cans', cost: '$2-3' },
+  ]},
+  { cat: 'Carbs', items: [
+    { name: 'Oats (rolled)', amount: '500g', cost: '$2-3' },
+    { name: 'White rice (dry)', amount: '1 kg', cost: '$2-3' },
+    { name: 'Sweet potatoes', amount: '1 kg', cost: '$3-4' },
+    { name: 'Pasta', amount: '500g', cost: '$1-2' },
+    { name: 'Whole wheat bread', amount: '1 loaf', cost: '$2-4' },
+    { name: 'Bananas', amount: '10', cost: '$2-3' },
+  ]},
+  { cat: 'Fats & Other', items: [
+    { name: 'Peanut butter', amount: '1 jar', cost: '$3-5' },
+    { name: 'Peanuts (raw)', amount: '250g', cost: '$3-4' },
+    { name: 'Olive oil', amount: 'monthly', cost: '-' },
+    { name: 'Whole milk', amount: '2 liters', cost: '$3-4' },
+    { name: 'Honey', amount: 'monthly', cost: '-' },
+  ]},
+  { cat: 'Vegetables', items: [
+    { name: 'Spinach', amount: '1 bag (300g)', cost: '$2-3' },
+    { name: 'Mixed veg (carrots, cabbage)', amount: '1 kg', cost: '$3-5' },
+    { name: 'Onions', amount: '500g', cost: '$1-2' },
+    { name: 'Garlic', amount: '1 head', cost: '$0.50' },
+  ]},
+  { cat: 'Supplements (monthly)', items: [
+    { name: 'Creatine monohydrate', amount: '5g/day', cost: '$10-12' },
+    { name: 'Whey protein', amount: '30g/day', cost: '$30-40' },
+    { name: 'Vitamin D3', amount: '4000 IU/day', cost: '$6-8' },
+    { name: 'Omega-3 fish oil', amount: '2g EPA+DHA', cost: '$10-15' },
+    { name: 'Magnesium glycinate', amount: '400mg/day', cost: '$8-10' },
+    { name: 'Zinc', amount: '15mg/day', cost: '$5-6' },
+  ]},
+];
+
+/* ============ WORKOUT DATA ============ */
+const WORKOUTS = {
+  'Mon': { title: 'UPPER A — Push Emphasis', exercises: [
+    { name: 'Dumbbell Bench Press', sets: '3 x 8-12', start: '25 lbs/hand', rest: '120s', note: 'Flat bench or floor press' },
+    { name: 'Dumbbell Shoulder Press', sets: '3 x 8-12', start: '20 lbs/hand', rest: '90s', note: 'Seated, back supported' },
+    { name: 'Dumbbell Bent-Over Row', sets: '3 x 8-12', start: '30 lbs/hand', rest: '90s', note: 'Torso 45 degrees' },
+    { name: 'Dumbbell Lateral Raise', sets: '3 x 12-15', start: '10 lbs/hand', rest: '60s', note: 'Raise to shoulder height' },
+    { name: 'Dumbbell Bicep Curl', sets: '3 x 10-12', start: '20 lbs/hand', rest: '60s', note: 'Strict form, no swinging' },
+    { name: 'Overhead Tricep Extension', sets: '3 x 10-12', start: '20 lbs', rest: '60s', note: 'One DB, both hands' },
+    { name: 'Band Face Pull', sets: '3 x 15-20', start: 'Light band', rest: '45s', note: 'Shoulder health — never skip' },
+  ]},
+  'Tue': { title: 'LOWER A — Quad Emphasis', exercises: [
+    { name: 'Goblet Squat', sets: '3 x 8-12', start: '30 lbs', rest: '120s', note: 'Hold DB at chest, sit deep' },
+    { name: 'Dumbbell Romanian Deadlift', sets: '3 x 8-12', start: '25 lbs/hand', rest: '90s', note: 'Push hips back, feel hamstrings' },
+    { name: 'Bulgarian Split Squat', sets: '3 x 10-12 each', start: 'Bodyweight', rest: '90s', note: 'Back foot on bench' },
+    { name: 'Standing Calf Raise', sets: '3 x 15-20', start: '30 lbs/hand', rest: '60s', note: 'Full stretch at bottom' },
+    { name: 'Plank', sets: '3 x 45 sec', start: 'Bodyweight', rest: '45s', note: 'Squeeze glutes, brace abs' },
+    { name: 'Bicycle Crunches', sets: '3 x 20', start: 'Bodyweight', rest: '45s', note: 'Slow and controlled' },
+  ]},
+  'Thu': { title: 'UPPER B — Pull Emphasis', exercises: [
+    { name: 'Pull-ups (or Negatives)', sets: '3 x 5-8', start: 'Bodyweight', rest: '120s', note: "Can't do 3? Do 5-sec negatives" },
+    { name: 'Dumbbell Incline Press', sets: '3 x 8-12', start: '20 lbs/hand', rest: '90s', note: 'Bench at 30 degrees' },
+    { name: 'Single-Arm Dumbbell Row', sets: '3 x 10-12 each', start: '25 lbs', rest: '90s', note: 'Knee on bench' },
+    { name: 'Arnold Press', sets: '3 x 8-12', start: '15 lbs/hand', rest: '90s', note: 'Rotate palms as you press' },
+    { name: 'Hammer Curl', sets: '3 x 10-12', start: '15 lbs/hand', rest: '60s', note: 'Palms face each other' },
+    { name: 'Diamond Push-ups', sets: '2 x AMRAP', start: 'Bodyweight', rest: '60s', note: 'Tricep finisher' },
+    { name: 'Band Face Pull', sets: '3 x 15-20', start: 'Light band', rest: '45s', note: 'Same as Monday' },
+  ]},
+  'Fri': { title: 'LOWER B — Hinge Emphasis', exercises: [
+    { name: 'Dumbbell Romanian Deadlift', sets: '3 x 8-12', start: '25 lbs/hand', rest: '120s', note: 'Primary hinge movement' },
+    { name: 'Goblet Squat', sets: '3 x 10-12', start: '25 lbs', rest: '90s', note: 'Lighter than Monday' },
+    { name: 'Dumbbell Walking Lunges', sets: '3 x 10 each', start: '15 lbs/hand', rest: '90s', note: 'Long strides' },
+    { name: 'Hip Thrust', sets: '3 x 12-15', start: 'Bodyweight', rest: '60s', note: 'Progress to DB on hips' },
+    { name: 'Seated Calf Raise', sets: '3 x 15-20', start: '25 lbs on knee', rest: '60s', note: 'Full ROM' },
+    { name: 'Hanging Leg Raise', sets: '3 x 12-15', start: 'Bodyweight', rest: '60s', note: 'Or lying leg raise' },
+    { name: 'Dead Bug', sets: '3 x 10 each', start: 'Bodyweight', rest: '45s', note: 'Lower back glued to floor' },
+  ]},
+};
+
+/* ============ SCHEDULE DATA ============ */
+const SCHEDULE_TRAINING = [
+  { time: '6:30', label: 'Wake + 500ml water + bathroom + make bed', type: '' },
+  { time: '6:40', label: 'Shower + brush teeth + get dressed', type: '' },
+  { time: '6:50', label: 'BREAKFAST — 4 eggs + oats + banana', type: '' },
+  { time: '7:15', label: 'Review 3 priorities', type: '' },
+  { time: '7:20', label: 'DEEP WORK 1 — APEX Development', type: 'work' },
+  { time: '8:50', label: 'Break + 500ml water + stretch', type: '' },
+  { time: '9:05', label: 'DEEP WORK 2 — APEX Development', type: 'work' },
+  { time: '10:35', label: 'Break + 500ml water + peanuts', type: '' },
+  { time: '10:50', label: 'DEEP WORK 3 — APEX Development', type: 'work' },
+  { time: '12:20', label: 'LUNCH — prepped container + rest', type: '' },
+  { time: '1:05', label: 'DEEP WORK 4 — Cybersec Consulting', type: 'work' },
+  { time: '2:35', label: 'Break + 500ml water', type: '' },
+  { time: '2:50', label: 'PRE-WORKOUT MEAL', type: '' },
+  { time: '3:05', label: 'Warm-up (10 min)', type: 'gym' },
+  { time: '3:15', label: 'WORKOUT (65 min)', type: 'gym' },
+  { time: '4:20', label: 'Cool-down stretches', type: 'gym' },
+  { time: '4:25', label: 'Post-workout shake + shower', type: '' },
+  { time: '4:45', label: 'DEEP WORK 5 — Consulting / Overflow', type: 'work' },
+  { time: '6:15', label: 'Supplements + dinner prep', type: '' },
+  { time: '6:20', label: 'DINNER — prepped container', type: '' },
+  { time: '6:50', label: 'FREE TIME', type: '' },
+  { time: '9:30', label: 'Prep tomorrow + brush teeth + magnesium', type: '' },
+  { time: '9:45', label: 'Wind down — no screens', type: '' },
+  { time: '10:00', label: 'LIGHTS OUT', type: '' },
+];
+
+const SCHEDULE_REST = [
+  { time: '6:30', label: 'Wake + 500ml water + bathroom + make bed', type: '' },
+  { time: '6:40', label: 'Shower + brush teeth + get dressed', type: '' },
+  { time: '6:50', label: 'BREAKFAST — 4 eggs + oats + banana', type: '' },
+  { time: '7:15', label: 'Review 3 priorities', type: '' },
+  { time: '7:20', label: 'DEEP WORK 1 — APEX', type: 'work' },
+  { time: '8:50', label: 'Break + water', type: '' },
+  { time: '9:05', label: 'DEEP WORK 2 — APEX', type: 'work' },
+  { time: '10:35', label: 'Break + water', type: '' },
+  { time: '10:50', label: 'DEEP WORK 3 — Consulting', type: 'work' },
+  { time: '12:20', label: 'LUNCH + rest', type: '' },
+  { time: '1:05', label: 'DEEP WORK 4 — Consulting', type: 'work' },
+  { time: '2:35', label: 'Break', type: '' },
+  { time: '2:50', label: 'DEEP WORK 5 — APEX / overflow', type: 'work' },
+  { time: '4:20', label: 'Snack + water', type: '' },
+  { time: '4:50', label: 'DEEP WORK 6 — Optional / light', type: 'work' },
+  { time: '6:20', label: 'DINNER', type: '' },
+  { time: '6:50', label: 'FREE TIME', type: '' },
+  { time: '9:30', label: 'Wind down', type: '' },
+  { time: '10:00', label: 'LIGHTS OUT', type: '' },
+];
+
+const SUNDAY_PREP = [
+  { time: '9:00', label: 'Wash & prep all vegetables', type: '' },
+  { time: '9:10', label: 'Start rice cooker + start lentils', type: '' },
+  { time: '9:25', label: 'Season & bake chicken (400F, 25 min)', type: '' },
+  { time: '9:45', label: 'Cook beef on stovetop', type: '' },
+  { time: '10:05', label: 'Boil/bake sweet potatoes', type: '' },
+  { time: '10:20', label: 'Cook pasta + portion oats (7 bags)', type: '' },
+  { time: '10:30', label: 'ASSEMBLE: 7 lunch + 7 dinner + 6 pre-WO containers', type: 'work' },
+  { time: '11:15', label: 'Cleanup', type: '' },
+  { time: '11:45', label: 'DONE — containers in fridge', type: '' },
+];
+
+/* ============ MAIN APP ============ */
+function App() {
+  const [state, setState] = useState(load);
+  const [tab, setTab] = useState('log');
+  const [selectedDate, setSelectedDate] = useState(today());
+  const [workoutDay, setWorkoutDay] = useState('Mon');
+  const [scheduleView, setScheduleView] = useState('training');
+  const chartRef = useRef(null);
+  const chartInstance = useRef(null);
+
+  useEffect(() => { save(state); }, [state]);
+
+  const phase = state.currentPhase;
+  const phaseInfo = PHASES[phase];
+  const log = state.logs[selectedDate] || defaultDay();
+  const dayNum = daysBetween(PHASE_START, selectedDate) + 1;
+
+  const updateLog = useCallback((field, value) => {
+    setState(prev => {
+      const newLog = { ...defaultDay(), ...prev.logs[selectedDate], [field]: value };
+      return { ...prev, logs: { ...prev.logs, [selectedDate]: newLog } };
+    });
+  }, [selectedDate]);
+
+  const updateMeal = useCallback((meal, value) => {
+    setState(prev => {
+      const prevLog = prev.logs[selectedDate] || defaultDay();
+      return { ...prev, logs: { ...prev.logs, [selectedDate]: { ...prevLog, meals: { ...prevLog.meals, [meal]: value } } } };
+    });
+  }, [selectedDate]);
+
+  const setPhase = (p) => setState(prev => ({ ...prev, currentPhase: p }));
+
+  useEffect(() => {
+    if (tab !== 'charts' || !chartRef.current) return;
+    if (chartInstance.current) chartInstance.current.destroy();
+    const dates = Object.keys(state.logs).filter(d => state.logs[d].weight).sort().slice(-30);
+    const weights = dates.map(d => parseFloat(state.logs[d].weight));
+    chartInstance.current = new Chart(chartRef.current, {
+      type: 'line', data: { labels: dates.map(fmt), datasets: [{ label: 'Weight (lbs)', data: weights, borderColor: '#4f9eff', backgroundColor: 'rgba(79,158,255,0.1)', fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#4f9eff' }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#888', font: { size: 10 } }, grid: { color: '#252525' } }, y: { ticks: { color: '#888' }, grid: { color: '#252525' }, suggestedMin: 118, suggestedMax: 160 } } }
+    });
+    return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+  }, [tab, state.logs]);
+
+  const getAdherenceForRange = (days) => {
+    let total = 0, max = 0;
+    for (let i = 0; i < days; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      if (state.logs[key]) { const a = calcAdherence(state.logs[key], phase); total += a.score; max += a.max; }
+    }
+    return max > 0 ? Math.round((total / max) * 100) : 0;
+  };
+
+  const { score: todayScore, max: todayMax } = state.logs[selectedDate] ? calcAdherence(state.logs[selectedDate], phase) : { score: 0, max: 0 };
+  const adherencePct = todayMax > 0 ? todayScore / todayMax : 0;
+
+  const TABS = [
+    { id: 'log', icon: '\u270F\uFE0F', label: 'Log' },
+    { id: 'meals', icon: '\uD83C\uDF5E', label: 'Meals' },
+    { id: 'workout', icon: '\uD83D\uDCAA', label: 'Workout' },
+    { id: 'schedule', icon: '\uD83D\uDCC5', label: 'Schedule' },
+    { id: 'charts', icon: '\uD83D\uDCC8', label: 'Charts' },
+    { id: 'settings', icon: '\u2699\uFE0F', label: 'Settings' },
+  ];
+
+  return (
+    <div className="container">
+      <div className="flex mb16">
+        <div>
+          <h1>Life Tracker</h1>
+          <div className="text-sm text-muted">Day {dayNum > 0 ? dayNum : '\u2014'}</div>
+        </div>
+        <div className="spacer" />
+        <span className="phase-badge" style={{ background: phaseInfo.color }}>P{phase}: {phaseInfo.name}</span>
+      </div>
+
+      {/* ========== DAILY LOG ========== */}
+      {tab === 'log' && (<>
+        <div className="card">
+          <div className="flex mb8">
+            <h2>Daily Log</h2>
+            <div className="spacer" />
+            <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{ width: 'auto', padding: '4px 8px', fontSize: '13px' }} />
+          </div>
+          <div className="grid mb8">
+            <div><label>Weight (lbs)</label><input type="number" step="0.1" placeholder="120.0" value={log.weight} onChange={e => updateLog('weight', e.target.value)} /></div>
+            <div><label>Sleep (hours)</label><input type="number" step="0.25" placeholder="7.5" value={log.sleep} onChange={e => updateLog('sleep', e.target.value)} /></div>
+          </div>
+          <div className="grid mb8">
+            <div><label>Protein (g)</label><input type="number" placeholder="180" value={log.protein} onChange={e => updateLog('protein', e.target.value)} /></div>
+            <div><label>Water (L)</label><input type="number" step="0.25" placeholder="3.0" value={log.water} onChange={e => updateLog('water', e.target.value)} /></div>
+          </div>
+          <div className="grid mb8">
+            <div><label>Calories</label><input type="number" placeholder="2800" value={log.calories} onChange={e => updateLog('calories', e.target.value)} /></div>
+            <div><label>Workout</label><Toggle value={log.workout} onChange={v => updateLog('workout', v)} labels={['Done', 'Rest']} /></div>
+          </div>
+        </div>
+        <div className="card">
+          <h3>Meals</h3>
+          <div className="grid3 mb8">
+            {['breakfast','lunch','preworkout'].map(m => (<div key={m}><label>{m === 'preworkout' ? 'Pre-WO' : m[0].toUpperCase()+m.slice(1)}</label><Toggle value={(log.meals||{})[m]||false} onChange={v => updateMeal(m,v)} labels={['\u2713','\u2717']} /></div>))}
+          </div>
+          <div className="grid3">
+            {['shake','dinner'].map(m => (<div key={m}><label>{m[0].toUpperCase()+m.slice(1)}</label><Toggle value={(log.meals||{})[m]||false} onChange={v => updateMeal(m,v)} labels={['\u2713','\u2717']} /></div>))}
+          </div>
+        </div>
+        {phase >= 2 && (<div className="card"><h3>Phase 2</h3>
+          <div className="grid mb8">
+            <div><label>Meditation</label><Toggle value={log.meditation} onChange={v => updateLog('meditation', v)} /></div>
+            <div><label>Grooming</label><Toggle value={log.grooming} onChange={v => updateLog('grooming', v)} /></div>
+          </div>
+          <div className="grid">
+            <div><label>Mandarin (min)</label><input type="number" placeholder="35" value={log.mandarin} onChange={e => updateLog('mandarin', e.target.value)} /></div>
+            <div><label>Reflection</label><Toggle value={log.reflection} onChange={v => updateLog('reflection', v)} /></div>
+          </div>
+        </div>)}
+        {phase >= 3 && (<div className="card"><h3>Phase 3</h3>
+          <div className="grid3">
+            <div><label>English (min)</label><input type="number" placeholder="30" value={log.english} onChange={e => updateLog('english', e.target.value)} /></div>
+            <div><label>APEX (min)</label><input type="number" placeholder="30" value={log.apexStudy} onChange={e => updateLog('apexStudy', e.target.value)} /></div>
+            <div><label>OSCP (min)</label><input type="number" placeholder="45" value={log.oscpStudy} onChange={e => updateLog('oscpStudy', e.target.value)} /></div>
+          </div>
+        </div>)}
+        {phase >= 4 && (<div className="card"><h3>Phase 4</h3>
+          <div className="grid">
+            <div><label>Mood (1-10)</label><input type="number" min="1" max="10" placeholder="7" value={log.mood} onChange={e => updateLog('mood', e.target.value)} /></div>
+            <div><label>Energy (1-10)</label><input type="number" min="1" max="10" placeholder="7" value={log.energy} onChange={e => updateLog('energy', e.target.value)} /></div>
+          </div>
+        </div>)}
+        <div className="card">
+          <div className="flex">
+            <span style={{ fontSize: 24, fontWeight: 700, color: adherencePct >= .8 ? 'var(--green)' : adherencePct >= .5 ? 'var(--yellow)' : 'var(--red)' }}>{todayScore}/{todayMax}</span>
+            <div className="spacer" />
+            <span className="text-muted text-sm">{Math.round(adherencePct * 100)}% adherence</span>
+          </div>
+          <div className="progress-bar mt8"><div className="progress-fill" style={{ width: `${adherencePct*100}%`, background: adherencePct >= .8 ? 'var(--green)' : adherencePct >= .5 ? 'var(--yellow)' : 'var(--red)' }} /></div>
+        </div>
+      </>)}
+
+      {/* ========== MEALS & GROCERY ========== */}
+      {tab === 'meals' && (<>
+        <div className="card">
+          <h2>Daily Meals — Phase 1</h2>
+          <div className="flex mb8">
+            <span className="tag">2,773 kcal</span>
+            <span className="tag">204g protein</span>
+            <span className="tag">74g fat</span>
+            <span className="tag">322g carbs</span>
+          </div>
+        </div>
+        {MEALS.map((meal, i) => (
+          <div key={i} className="meal-card">
+            <div className="meal-title">{meal.name}</div>
+            <div className="meal-macro">{meal.cal} kcal &bull; {meal.protein}g protein &bull; {meal.time}</div>
+            {meal.items.map((item, j) => (
+              <div key={j} className="meal-item"><span>{item.food}</span><span>{item.amount}</span></div>
+            ))}
+          </div>
+        ))}
+        <div className="card mt16">
+          <div className="text-sm text-muted mb8">Rest days: skip pre-workout meal & shake. Add 50g rice to lunch, 50g pasta to dinner. Total: ~2,400 kcal.</div>
+        </div>
+
+        <hr className="divider" />
+
+        <div className="card">
+          <h2>Weekly Grocery List</h2>
+          <div className="text-sm text-muted mb8">Weekly food: ~$100-135 &bull; Monthly supplements: ~$65-85</div>
+        </div>
+        {GROCERY.map((cat, i) => (
+          <div key={i} className="card grocery-cat">
+            <h4>{cat.cat}</h4>
+            {cat.items.map((item, j) => (
+              <div key={j} className="grocery-item"><span>{item.name} — {item.amount}</span><span>{item.cost}</span></div>
+            ))}
+          </div>
+        ))}
+
+        <hr className="divider" />
+
+        <div className="card">
+          <h2>Sunday Meal Prep (3 hours)</h2>
+          <div className="text-sm text-muted mb8">Cook once, eat all week. 20 containers total.</div>
+          {SUNDAY_PREP.map((step, i) => (
+            <div key={i} className="time-block">
+              <div className="time">{step.time}</div>
+              <div className={`activity ${step.type}`}>{step.label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="card">
+          <h3>Container Layout</h3>
+          <div className="text-sm" style={{ lineHeight: 1.8 }}>
+            <div><strong>7 LUNCH:</strong> 180g chicken + 200g rice + 80g lentils + veggies + olive oil</div>
+            <div><strong>7 DINNER:</strong> 150g beef/fish + 150g pasta + 60g chickpeas + spinach + olive oil</div>
+            <div><strong>6 PRE-WO:</strong> 150g sweet potato (add bread + tuna + PB fresh)</div>
+          </div>
+        </div>
+      </>)}
+
+      {/* ========== WORKOUT ========== */}
+      {tab === 'workout' && (<>
+        <div className="card">
+          <h2>4-Day Upper/Lower Split</h2>
+          <div className="text-sm text-muted mb8">Mon/Tue/Thu/Fri training &bull; Wed/Sat/Sun rest</div>
+          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
+            {['Mon','Tue','Thu','Fri'].map(d => (
+              <button key={d} className={`btn-sm ${workoutDay === d ? 'btn' : 'btn-ghost'}`} onClick={() => setWorkoutDay(d)}>{d}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <h2>{WORKOUTS[workoutDay].title}</h2>
+          <div className="text-sm text-muted mb8">~65 min + 10 min warm-up + 5 min cool-down</div>
+        </div>
+
+        <div className="card mb8" style={{ background: 'var(--bg3)', borderColor: 'var(--orange)' }}>
+          <h4 style={{ color: 'var(--orange)', margin: 0, marginBottom: 4 }}>WARM-UP (10 min)</h4>
+          <div className="text-sm">Jump rope 3 min &rarr; Arm circles 1 min &rarr; Band pull-aparts 2x15 &rarr; BW squats 2x15 &rarr; Hip circles &rarr; 1 warm-up set at 50% weight</div>
+        </div>
+
+        {WORKOUTS[workoutDay].exercises.map((ex, i) => (
+          <div key={i} className="exercise-row">
+            <div className="ex-name">{i+1}. {ex.name}</div>
+            <div className="ex-detail">{ex.sets} &bull; Rest {ex.rest} &bull; {ex.note}</div>
+            <div className="ex-weight">Start: {ex.start}</div>
+          </div>
+        ))}
+
+        <div className="card mt8" style={{ background: 'var(--bg3)', borderColor: 'var(--accent)' }}>
+          <h4 style={{ color: 'var(--accent)', margin: 0, marginBottom: 4 }}>COOL-DOWN (5 min)</h4>
+          <div className="text-sm">Chest stretch &rarr; Tricep stretch &rarr; Shoulder stretch &rarr; Quad stretch &rarr; Hamstring stretch &rarr; Calf stretch &rarr; Child's pose (30s each)</div>
+        </div>
+
+        <div className="card mt8">
+          <h3>Progressive Overload</h3>
+          <div className="text-sm" style={{ lineHeight: 1.8 }}>
+            <div>When you hit <strong>ALL sets at the TOP of rep range</strong> with good form:</div>
+            <div>&bull; Compounds: <strong>+5 lbs</strong> next session</div>
+            <div>&bull; Isolation: <strong>+2.5 lbs</strong> next session</div>
+            <div>&bull; Tempo: <strong>2s up, 1s pause, 3s down</strong></div>
+            <div>&bull; Last set each exercise: RPE 8-9 (1-2 reps left in tank)</div>
+            <hr className="divider" />
+            <div><strong>Deload week 4:</strong> Use 60% of working weights, same sets/reps</div>
+          </div>
+        </div>
+      </>)}
+
+      {/* ========== SCHEDULE ========== */}
+      {tab === 'schedule' && (<>
+        <div className="card">
+          <h2>Phase 1 Daily Schedule</h2>
+          <div className="flex mb8" style={{ gap: 4 }}>
+            {['training','rest','sunday'].map(v => (
+              <button key={v} className={`btn-sm ${scheduleView === v ? 'btn' : 'btn-ghost'}`} onClick={() => setScheduleView(v)}>
+                {v === 'training' ? 'Training Day' : v === 'rest' ? 'Rest Day' : 'Sunday'}
+              </button>
+            ))}
+          </div>
+          <div className="text-sm text-muted">
+            {scheduleView === 'training' ? 'Mon / Tue / Thu / Fri' : scheduleView === 'rest' ? 'Wed / Sat' : 'Sunday — Rest + Meal Prep'}
+          </div>
+        </div>
+
+        <div className="card">
+          {(scheduleView === 'training' ? SCHEDULE_TRAINING : scheduleView === 'rest' ? SCHEDULE_REST : [
+            { time: '7:00', label: 'Wake (sleep in) + water', type: '' },
+            { time: '7:45', label: 'Weekly review (30 min)', type: '' },
+            { time: '8:15', label: 'Grocery run', type: '' },
+            { time: '9:00', label: 'MEAL PREP (3 hours)', type: 'work' },
+            { time: '12:00', label: 'Lunch (fresh from prep)', type: '' },
+            { time: '12:45', label: 'Light APEX work (90 min)', type: 'work' },
+            { time: '2:15', label: 'FREE — rest, socialize, walk', type: '' },
+            { time: '6:00', label: 'Dinner', type: '' },
+            { time: '6:30', label: 'FREE TIME', type: '' },
+            { time: '9:00', label: 'Plan next week', type: '' },
+            { time: '9:30', label: 'Wind down', type: '' },
+            { time: '10:00', label: 'LIGHTS OUT', type: '' },
+          ]).map((block, i) => (
+            <div key={i} className="time-block">
+              <div className="time">{block.time}</div>
+              <div className={`activity ${block.type}`}>{block.label}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="card">
+          <h3>Phase 1 Daily Targets</h3>
+          <div className="text-sm" style={{ lineHeight: 2 }}>
+            <div>&bull; 2,800 kcal &bull; 180g protein &bull; 3.0L water</div>
+            <div>&bull; Workout 4x/week &bull; 7.5+ hrs sleep &bull; Bed by 10 PM</div>
+            <div>&bull; Log everything before bed</div>
+          </div>
+          <hr className="divider" />
+          <h3>Phase 1 Rules</h3>
+          <div className="text-sm" style={{ lineHeight: 2 }}>
+            <div>&bull; NO meditation, Chinese, English, or trading yet</div>
+            <div>&bull; ONLY food + gym + consulting + APEX dev</div>
+            <div>&bull; 80% adherence x 30 days = unlock Phase 2</div>
+          </div>
+        </div>
+      </>)}
+
+      {/* ========== CHARTS ========== */}
+      {tab === 'charts' && (<>
+        <div className="card">
+          <h2>Weight Trend (Last 30 Days)</h2>
+          <div className="chart-wrap"><canvas ref={chartRef} /></div>
+        </div>
+        <div className="card">
+          <h2>Adherence</h2>
+          <div className="grid">
+            <div className="stat"><div className="val">{getAdherenceForRange(7)}%</div><div className="lbl">Last 7 Days</div></div>
+            <div className="stat"><div className="val">{getAdherenceForRange(30)}%</div><div className="lbl">Last 30 Days</div></div>
+          </div>
+        </div>
+        <div className="card">
+          <h2>Workout Consistency (28 Days)</h2>
+          <div className="day-dots">
+            {Array.from({ length: 28 }, (_, i) => {
+              const d = new Date(); d.setDate(d.getDate() - 27 + i);
+              const key = d.toISOString().split('T')[0]; const l = state.logs[key];
+              const dow = d.getDay(); const isRest = dow === 0 || dow === 3 || dow === 6;
+              let bg = '#252525';
+              if (l) { if (l.workout === true) bg = 'var(--green)'; else if (l.workout === false && isRest) bg = 'var(--accent)'; else if (l.workout === false) bg = 'var(--red)'; }
+              return <div key={i} className="day-dot" style={{ background: bg }}>{d.getDate()}</div>;
+            })}
+          </div>
+          <div className="text-sm text-muted mt8">
+            <span style={{ color: 'var(--green)' }}>{'\u25A0'}</span> Trained&nbsp;
+            <span style={{ color: 'var(--accent)' }}>{'\u25A0'}</span> Rest&nbsp;
+            <span style={{ color: 'var(--red)' }}>{'\u25A0'}</span> Missed
+          </div>
+        </div>
+        <div className="card">
+          <h2>Streaks</h2>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {[
+              { key: 'workout', label: 'Workout' }, { key: 'meals', label: 'All Meals' },
+              { key: 'protein', label: 'Protein' }, { key: 'water', label: 'Water' }, { key: 'sleep', label: 'Sleep' },
+              ...(phase >= 2 ? [{ key: 'meditation', label: 'Meditation' }, { key: 'grooming', label: 'Grooming' }] : []),
+            ].map(({ key, label }) => {
+              const s = calcStreaks(state.logs, key);
+              return <div key={key} className="streak"><span className="fire">{s > 0 ? '\uD83D\uDD25' : '\u26AA'}</span><span style={{ fontWeight: 600 }}>{s}</span><span className="text-muted">{label}</span></div>;
+            })}
+          </div>
+        </div>
+        <div className="card">
+          <h2>Weekly Summary</h2>
+          <table><thead><tr><th>Day</th><th>Wt</th><th>Prot</th><th>H2O</th><th>Sleep</th><th>Score</th></tr></thead>
+          <tbody>{Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(); d.setDate(d.getDate() - 6 + i); const key = d.toISOString().split('T')[0]; const l = state.logs[key]; const a = l ? calcAdherence(l, phase) : null;
+            return (<tr key={i}><td>{['Su','Mo','Tu','We','Th','Fr','Sa'][d.getDay()]}</td><td>{l?.weight||'\u2014'}</td><td>{l?.protein?l.protein+'g':'\u2014'}</td><td>{l?.water?l.water+'L':'\u2014'}</td><td>{l?.sleep?l.sleep+'h':'\u2014'}</td>
+            <td>{a?<span style={{color:a.score/a.max>=.8?'var(--green)':a.score/a.max>=.5?'var(--yellow)':'var(--red)'}}>{a.score}/{a.max}</span>:'\u2014'}</td></tr>);
+          })}</tbody></table>
+        </div>
+        <div className="card">
+          <h2>Monthly Measurements</h2>
+          <div className="text-sm text-muted mb8">1st Sunday of each month</div>
+          {(() => {
+            const month = today().slice(0,7); const m = state.measurements[month] || {};
+            const upd = (f, v) => setState(prev => ({ ...prev, measurements: { ...prev.measurements, [month]: { ...prev.measurements[month], [f]: v } } }));
+            return <div className="grid3">{['chest','waist','hips','bicepL','bicepR','thighL','thighR','calfL','calfR'].map(f => (
+              <div key={f}><label>{f.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase())} (in)</label><input type="number" step="0.25" value={m[f]||''} onChange={e=>upd(f,e.target.value)} /></div>
+            ))}</div>;
+          })()}
+        </div>
+      </>)}
+
+      {/* ========== SETTINGS ========== */}
+      {tab === 'settings' && (<>
+        <div className="card">
+          <h2>Phase Control</h2>
+          <div className="text-sm text-muted mb8">Advance at 80%+ adherence for 30 days</div>
+          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
+            {[1,2,3,4].map(p => (<button key={p} className={`btn-sm ${p===phase?'btn':'btn-ghost'}`} onClick={()=>setPhase(p)} style={p===phase?{background:PHASES[p].color}:{}}>{PHASES[p].name}</button>))}
+          </div>
+          <div className="mt8">
+            <div className="flex"><span>30-Day Adherence:</span><div className="spacer" /><span style={{fontWeight:700,fontSize:18,color:getAdherenceForRange(30)>=80?'var(--green)':'var(--yellow)'}}>{getAdherenceForRange(30)}%</span></div>
+            <div className="progress-bar"><div className="progress-fill" style={{width:`${Math.min(getAdherenceForRange(30),100)}%`,background:getAdherenceForRange(30)>=80?'var(--green)':'var(--yellow)'}} /></div>
+            {getAdherenceForRange(30)>=80 && phase<4 && <button className="btn mt16" onClick={()=>setPhase(phase+1)}>Advance to Phase {phase+1}</button>}
+          </div>
+        </div>
+        <div className="card">
+          <h2>Data</h2>
+          <div className="text-sm text-muted mb8">{Object.keys(state.logs).length} days logged &bull; Stored in browser</div>
+          <div className="flex">
+            <button className="btn-sm btn-ghost" onClick={() => { const b=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`tracker_backup_${today()}.json`; a.click(); }}>Export</button>
+            <button className="btn-sm btn-ghost" onClick={() => { const inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=e=>{const r=new FileReader(); r.onload=ev=>{try{const d=JSON.parse(ev.target.result); setState(d); save(d); alert('Imported!')}catch{alert('Invalid')}}; r.readAsText(e.target.files[0])}; inp.click(); }}>Import</button>
+            <div className="spacer" />
+            <button className="btn-sm" style={{background:'var(--red)'}} onClick={()=>{if(confirm('Delete ALL data?')){const f=defaultState();setState(f);save(f)}}}>Reset</button>
+          </div>
+        </div>
+      </>)}
+
+      {/* ========== BOTTOM NAV ========== */}
+      <div className="bottom-nav">
+        {TABS.map(t => (
+          <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
+            <span className="icon">{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
